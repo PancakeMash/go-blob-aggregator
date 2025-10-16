@@ -233,6 +233,29 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("require only feed url")
+	}
+	url := cmd.args[0]
+	urlId, err := s.db.GetFeedByURL(context.Background(), url)
+	if err != nil {
+		return err
+	}
+
+	res, err := s.db.UnfollowFeed(context.Background(), database.UnfollowFeedParams{
+		UserID: user.ID,
+		FeedID: urlId.ID,
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = res
+
+	return nil
+}
+
 //Methods
 
 func (c *commands) run(s *state, cmd command) error {

@@ -38,6 +38,7 @@ func main() {
 	cliCommands.register("feeds", handlerGetFeeds)
 	cliCommands.register("follow", middlewareLoggedIn(handlerFollow))
 	cliCommands.register("following", middlewareLoggedIn(handlerFollowing))
+	cliCommands.register("unfollow", middlewareLoggedIn(handlerUnfollow))
 
 	if len(os.Args) < 2 {
 		log.Fatal("not enough arguments were provided")
