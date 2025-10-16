@@ -34,10 +34,10 @@ func main() {
 	cliCommands.register("reset", handlerReset)
 	cliCommands.register("users", handlerGetUsers)
 	cliCommands.register("agg", handlerAgg)
-	cliCommands.register("addfeed", handlerAddFeed)
+	cliCommands.register("addfeed", middlewareLoggedIn(handlerAddFeed))
 	cliCommands.register("feeds", handlerGetFeeds)
-	cliCommands.register("follow", handlerFollow)
-	cliCommands.register("following", handlerFollowing)
+	cliCommands.register("follow", middlewareLoggedIn(handlerFollow))
+	cliCommands.register("following", middlewareLoggedIn(handlerFollowing))
 
 	if len(os.Args) < 2 {
 		log.Fatal("not enough arguments were provided")

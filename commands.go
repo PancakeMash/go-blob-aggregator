@@ -14,7 +14,20 @@ import (
 	"github.com/google/uuid"
 )
 
-// Handler Function
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return func(s *state, cmd command) error {
+		if s.cfg.CurrentUserName == "" {
+			return fmt.Errorf("not logged in")
+		}
+		user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+		if err != nil {
+			return err
+		}
+		return handler(s, cmd, user)
+	}
+}
+
+// Handler Functions
 func handlerLogin(s *state, cmd command) error {
 	if (len(cmd.args)) == 0 {
 		return fmt.Errorf("username is required")
@@ -117,13 +130,9 @@ func handlerAgg(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state, cmd command) error {
+func handlerAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.args) != 2 {
 		return fmt.Errorf("require the feed name and url")
-	}
-	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return err
 	}
 
 	name := cmd.args[0]
@@ -145,7 +154,7 @@ func handlerAddFeed(s *state, cmd command) error {
 		return check
 	}
 
-	_, err = s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+	_, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		ID:     uuid.New(),
 		UserID: userId,
 		FeedID: result.ID,
@@ -182,7 +191,7 @@ func handlerGetFeeds(s *state, cmd command) error {
 	return nil
 }
 
-func handlerFollow(s *state, cmd command) error {
+func handlerFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.args) != 1 {
 		return fmt.Errorf("require only feed url")
 	}
@@ -193,11 +202,6 @@ func handlerFollow(s *state, cmd command) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("no feed with that URL; run addfeed first")
 		}
-		return err
-	}
-
-	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
 		return err
 	}
 
@@ -214,11 +218,7 @@ func handlerFollow(s *state, cmd command) error {
 	return nil
 }
 
-func handlerFollowing(s *state, cmd command) error {
-	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return err
-	}
+func handlerFollowing(s *state, cmd command, user database.User) error {
 
 	ff, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {
