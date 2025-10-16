@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Functions & Methods
+// Handler Function
 func handlerLogin(s *state, cmd command) error {
 	if (len(cmd.args)) == 0 {
 		return fmt.Errorf("username is required")
@@ -116,6 +116,124 @@ func handlerAgg(s *state, cmd command) error {
 
 	return nil
 }
+
+func handlerAddFeed(s *state, cmd command) error {
+	if len(cmd.args) != 2 {
+		return fmt.Errorf("require the feed name and url")
+	}
+	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	name := cmd.args[0]
+	url := cmd.args[1]
+
+	id := uuid.New()
+	now := time.Now()
+	userId := user.ID
+
+	result, check := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        id,
+		CreatedAt: now,
+		UpdatedAt: now,
+		Name:      name,
+		Url:       url,
+		UserID:    userId,
+	})
+	if check != nil {
+		return check
+	}
+
+	_, err = s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:     uuid.New(),
+		UserID: userId,
+		FeedID: result.ID,
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("User: %q created \n", user.Name)
+	fmt.Printf("URL: %s\n", url)
+	fmt.Printf("User ID: %s\n", userId)
+	fmt.Printf("Feed: %s\n", result.Name)
+	fmt.Printf("Created at %s\n", result.CreatedAt)
+
+	return nil
+}
+
+func handlerGetFeeds(s *state, cmd command) error {
+	if len(cmd.args) > 0 {
+		return fmt.Errorf("no input required. Usage: gator feeds")
+	}
+
+	res, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, f := range res {
+		fmt.Println(f.FeedName)
+		fmt.Println(f.Url)
+		fmt.Println(f.UserName)
+	}
+
+	return nil
+}
+
+func handlerFollow(s *state, cmd command) error {
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("require only feed url")
+	}
+	url := cmd.args[0]
+
+	feed, err := s.db.GetFeedByURL(context.Background(), url)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("no feed with that URL; run addfeed first")
+		}
+		return err
+	}
+
+	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	ff, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:     uuid.New(),
+		UserID: user.ID,
+		FeedID: feed.ID,
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%s (%s)\n", ff.FeedName, ff.UserName)
+	return nil
+}
+
+func handlerFollowing(s *state, cmd command) error {
+	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	ff, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(s.cfg.CurrentUserName)
+	for _, u := range ff {
+		fmt.Println(u)
+	}
+
+	return nil
+}
+
+//Methods
 
 func (c *commands) run(s *state, cmd command) error {
 	cmdHandler, ok := c.m[cmd.name]

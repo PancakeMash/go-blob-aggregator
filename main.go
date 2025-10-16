@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"os"
 
@@ -35,6 +34,10 @@ func main() {
 	cliCommands.register("reset", handlerReset)
 	cliCommands.register("users", handlerGetUsers)
 	cliCommands.register("agg", handlerAgg)
+	cliCommands.register("addfeed", handlerAddFeed)
+	cliCommands.register("feeds", handlerGetFeeds)
+	cliCommands.register("follow", handlerFollow)
+	cliCommands.register("following", handlerFollowing)
 
 	if len(os.Args) < 2 {
 		log.Fatal("not enough arguments were provided")
@@ -47,5 +50,4 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(appState.cfg)
 }
