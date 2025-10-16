@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -25,6 +24,25 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 		}
 		return handler(s, cmd, user)
 	}
+}
+
+func scrapeFeeds(s *state) error {
+	lf, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return err
+	}
+
+	ff, err := rss.FetchFeed(context.Background(), lf.Url)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range ff.Channel.Item {
+		fmt.Println(item.Title)
+	}
+
+	return nil
+
 }
 
 // Handler Functions
@@ -111,23 +129,26 @@ func handlerGetUsers(s *state, cmd command) error {
 }
 
 func handlerAgg(s *state, cmd command) error {
-	url := "https://www.wagslane.dev/index.xml"
-	if len(cmd.args) > 0 {
-		url = cmd.args[0]
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("usage: agg <time_between_reqs>, e.g. '1m' or '10s'")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	resp, err := rss.FetchFeed(ctx, url)
+	d, err := time.ParseDuration(cmd.args[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid duration %q: %w", cmd.args[0], err)
 	}
 
-	b, _ := json.MarshalIndent(resp, "", "  ")
-	fmt.Println(string(b))
+	fmt.Printf("Collecting feeds every %s\n", d)
 
-	return nil
+	ticker := time.NewTicker(d)
+	defer ticker.Stop()
+
+	// run immediately, then on each tick
+	for ; ; <-ticker.C {
+		if err := scrapeFeeds(s); err != nil {
+			fmt.Printf("scrape error: %v\n", err)
+		}
+	}
 }
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
