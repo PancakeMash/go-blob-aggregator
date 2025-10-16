@@ -74,6 +74,27 @@ func handlerReset(s *state, cmd command) error {
 	return nil
 }
 
+func handlerGetUsers(s *state, cmd command) error {
+	if len(cmd.args) != 0 {
+		return fmt.Errorf("no input required. Usage: gator users")
+	}
+
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, u := range users {
+		if s.cfg.CurrentUserName == u.Name {
+			fmt.Printf("* %s (current)\n", u.Name)
+		} else {
+			fmt.Printf("* %s\n", u.Name)
+		}
+	}
+
+	return nil
+}
+
 func (c *commands) run(s *state, cmd command) error {
 	cmdHandler, ok := c.m[cmd.name]
 	if !ok {

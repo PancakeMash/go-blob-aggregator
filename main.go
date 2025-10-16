@@ -33,6 +33,7 @@ func main() {
 	cliCommands.register("login", handlerLogin)
 	cliCommands.register("register", handlerRegister)
 	cliCommands.register("reset", handlerReset)
+	cliCommands.register("users", handlerGetUsers)
 
 	if len(os.Args) < 2 {
 		log.Fatal("not enough arguments were provided")
