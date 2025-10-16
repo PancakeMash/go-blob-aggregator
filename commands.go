@@ -1,9 +1,15 @@
 package main
 
 import (
+	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/PancakeMash/go-blob-aggregator/internal/config"
+	"github.com/PancakeMash/go-blob-aggregator/internal/database"
+	"github.com/google/uuid"
 )
 
 // Functions & Methods
@@ -12,14 +18,59 @@ func handlerLogin(s *state, cmd command) error {
 		return fmt.Errorf("username is required")
 	}
 
-	s.config.CurrentUserName = cmd.args[0]
-	username := s.config.CurrentUserName
+	u, err := s.db.GetUser(context.Background(), cmd.args[0])
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return fmt.Errorf("db error: %w", err)
+	}
+	_ = u
 
-	if err := s.config.SetUser(username); err != nil {
+	s.cfg.CurrentUserName = cmd.args[0]
+	username := s.cfg.CurrentUserName
+
+	if err := s.cfg.SetUser(username); err != nil {
 		return err
 	}
 
 	fmt.Println("user set to", username)
+	return nil
+}
+
+func handlerRegister(s *state, cmd command) error {
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("username is required. Usage: gator register name")
+	}
+	ctx := context.Background()
+	username := cmd.args[0]
+	id := uuid.New()
+	now := time.Now()
+
+	_, err := s.db.CreateUser(ctx, database.CreateUserParams{
+		ID:        id,
+		CreatedAt: now,
+		UpdatedAt: now,
+		Name:      username,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := s.cfg.SetUser(username); err != nil {
+		return err
+	}
+
+	fmt.Printf("User %q created\n", username)
+	return nil
+}
+
+func handlerReset(s *state, cmd command) error {
+	if err := s.db.ResetUsers(context.Background()); err != nil {
+		return err
+	}
+
+	fmt.Println("Reset user succeeded")
 	return nil
 }
 
@@ -44,7 +95,8 @@ func (c *commands) register(name string, f func(*state, command) error) {
 //Types
 
 type state struct {
-	config *config.Config
+	db  *database.Queries
+	cfg *config.Config
 }
 
 type commands struct {
