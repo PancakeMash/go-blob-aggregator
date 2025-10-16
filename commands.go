@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/PancakeMash/go-blob-aggregator/internal/config"
 	"github.com/PancakeMash/go-blob-aggregator/internal/database"
+	"github.com/PancakeMash/go-blob-aggregator/internal/rss"
 	"github.com/google/uuid"
 )
 
@@ -91,6 +93,26 @@ func handlerGetUsers(s *state, cmd command) error {
 			fmt.Printf("* %s\n", u.Name)
 		}
 	}
+
+	return nil
+}
+
+func handlerAgg(s *state, cmd command) error {
+	url := "https://www.wagslane.dev/index.xml"
+	if len(cmd.args) > 0 {
+		url = cmd.args[0]
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := rss.FetchFeed(ctx, url)
+	if err != nil {
+		return err
+	}
+
+	b, _ := json.MarshalIndent(resp, "", "  ")
+	fmt.Println(string(b))
 
 	return nil
 }
